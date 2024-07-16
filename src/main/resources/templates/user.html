@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko"
+      xmlns:th="https://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+>
+<head>
+    <meta charset="UTF-8">
+    <title>매장 정보</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+<h1>유저 사용 페이지</h1>
+<select id="siGunGuSelect">
+    <option value="">전체</option>
+</select>
+<select id="deliverySelect">
+    <option value="">전체</option>
+</select>
+<table id="storeTable">
+    <thead>
+    <tr>
+        <th>순번</th>
+        <th>프렌차이즈명</th>
+        <th>가맹점명</th>
+        <th>전화번호</th>
+        <th>도로명주소</th>
+        <th>평일운영시간</th>
+        <th>토요일운영시간</th>
+        <th>배달가능여부</th>
+        <th>좋아요하기</th>
+    </tr>
+    </thead>
+    <tbody id="storeTableBody">
+    <!-- Table body will be filled dynamically -->
+    </tbody>
+</table>
+
+<script>
+    let originalData = []; // 변수 추가: 원본 데이터 저장
+
+    fetch("https://api.odcloud.kr/api/15109950/v1/uddi:1f78fe49-78b4-4784-a5f0-e2c8a60515b4?page=2&perPage=10&serviceKey=WX/qIsVj4inhHOXPUgOGfxI7MQh1LIHyhfli2ch1DGUWsG37xoDDh724K5F05MzVG2OQJuigRzUq63r/nTMfRg==")
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(data); // Log received JSON data for verification
+            originalData = data.data; // Save original data
+            populateTable(data);
+            populateSelect(data);
+        })
+        .catch(error => console.error('Error fetching data:', error));
+
+    function populateTable(data) {
+        var tableBody = document.getElementById('storeTableBody');
+
+        // Clear existing table rows
+        tableBody.innerHTML = '';
+
+        // Check if data is an object with 'data' property
+        if (!data || !data.data || !Array.isArray(data.data)) {
+            console.error('Data format is not as expected:', data);
+            return;
+        }
+
+        // Iterate through JSON data and create table rows
+        data.data.forEach((item, index) => {
+            var row = document.createElement('tr');
+            var franchiseName = item.가맹점명.split(' ')[0]; // Get the first word before space
+
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${franchiseName}</td>
+                <td>${item.가맹점명}</td>
+                <td>${item.전화번호}</td>
+                <td>${item.소재지도로명주소}</td>
+                <td>${item.평일운영시작시각}</td>
+                <td>${item.토요일운영시작시각}</td>
+                <td>${item.배달가능여부}</td>
+                <td><button style="border: none; color: blue; background-color: white" onclick="likeButtonClick()">좋아요</button></td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function populateSelect(data) {
+        var siGunGuSelect = document.getElementById('siGunGuSelect');
+        var deliverySelect = document.getElementById('deliverySelect');
+
+        // Clear existing options
+        siGunGuSelect.innerHTML = '<option value="">전체</option>';
+        deliverySelect.innerHTML = '<option value="">전체</option>';
+
+        // Check if data is an object with 'data' property
+        if (!data || !data.data || !Array.isArray(data.data)) {
+            console.error('Data format is not as expected:', data);
+            return;
+        }
+
+        // Collect unique 시군구명 and 배달 가능 여부
+        var uniqueSiGunGu = [];
+        var uniqueDeliveryOptions = [];
+
+        data.data.forEach(item => {
+            if (!uniqueSiGunGu.includes(item.시군구명)) {
+                uniqueSiGunGu.push(item.시군구명);
+            }
+            if (!uniqueDeliveryOptions.includes(item.배달가능여부)) {
+                uniqueDeliveryOptions.push(item.배달가능여부);
+            }
+        });
+
+        // Create options for 시군구 select
+        uniqueSiGunGu.forEach(siGunGu => {
+            var option = document.createElement('option');
+            option.textContent = siGunGu;
+            option.value = siGunGu;
+            siGunGuSelect.appendChild(option);
+        });
+
+        // Create options for 배달 가능 여부 select
+        uniqueDeliveryOptions.forEach(deliveryOption => {
+            var option = document.createElement('option');
+            option.textContent = deliveryOption;
+            option.value = deliveryOption;
+            deliverySelect.appendChild(option);
+        });
+
+        siGunGuSelect.addEventListener('change', () => {
+            var selectedSiGunGu = siGunGuSelect.value;
+            var selectedDeliveryOption = deliverySelect.value;
+            var filteredData = originalData;
+
+            if (selectedSiGunGu) {
+                filteredData = filteredData.filter(item => item.시군구명 === selectedSiGunGu);
+            }
+
+            if (selectedDeliveryOption) {
+                filteredData = filteredData.filter(item => item.배달가능여부 === selectedDeliveryOption);
+            }
+
+            populateTable({ data: filteredData }); // Pass filtered data as object with 'data' property
+        });
+
+        deliverySelect.addEventListener('change', () => {
+            var selectedSiGunGu = siGunGuSelect.value;
+            var selectedDeliveryOption = deliverySelect.value;
+            var filteredData = originalData;
+
+            if (selectedSiGunGu) {
+                filteredData = filteredData.filter(item => item.시군구명 === selectedSiGunGu);
+            }
+
+            if (selectedDeliveryOption) {
+                filteredData = filteredData.filter(item => item.배달가능여부 === selectedDeliveryOption);
+            }
+
+            populateTable({ data: filteredData }); // Pass filtered data as object with 'data' property
+        });
+    }
+    function likeButtonClick() {
+        // 여기에 클릭 시 동작할 코드 작성
+        var countElement = document.getElementById('likeCount');
+        var count = 0;
+        var newCount = count + 1;
+
+        // 카운트 증가
+
+        // 서버로 데이터 전송 (여기서는 예시로 콘솔에 로그로 출력)
+        console.log('좋아요 카운트:', newCount);
+
+        // 실제로 서버로 데이터를 전송하려면 AJAX 또는 Fetch API를 사용하여 요청을 보낼 수 있습니다.
+        fetch('/admin', {
+            method: 'POST',
+            body: JSON.stringify({ likeCount: newCount }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }).then(response => {
+
+            // 서버 응답 처리
+        }).catch(error => {
+            console.error('Error sending like count:', error);
+        });
+    }
+</script>
+</body>
+</html>
